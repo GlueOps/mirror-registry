@@ -1,6 +1,6 @@
 destination_registries: 
-    - ghcr
-    - quay.io
+  - ghcr.io
+  - quay.io
 images:
   - image: docker.io/hashicorp/vault
     tags:

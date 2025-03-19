@@ -4,7 +4,7 @@ description: 'Mirror images from dockerhub to other registries(ghcr,quay)'
 inputs:
   config-file-path:  # id of input
     description: 'File contains the config of docker images'
-    required: true
+    required: false
 
 runs:
   using: 'docker'

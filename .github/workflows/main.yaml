@@ -28,6 +28,6 @@ jobs:
         id: mirror
         uses: ./
         with:
-          config-file-path: '/github/workspace/values.yaml'
+          config-file-path: 'values.yaml'
         env:
           SECRET_BASE64: ${{ secrets.SECRET_BASE64 }}

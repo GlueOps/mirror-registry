@@ -20,6 +20,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: List Files
+        run: ls -la /github/workspace
 
       - name: Test Action
         id: mirror

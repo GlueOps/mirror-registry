@@ -1,0 +1,6 @@
+# action.yml
+name: 'Mirror Images'
+description: 'Mirror images from dockerhub to other registries(ghcr,quay)'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

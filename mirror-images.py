@@ -5,16 +5,21 @@ import os
 import base64
 import requests
 import re
+import argparse
 
 client = docker.DockerClient(base_url="unix://var/run/docker.sock")
+parser = argparse.ArgumentParser(
+            prog='Mirror',
+            description='Mirror images')
+parser.add_argument('config_file_path')
+args = parser.parse_args()
 
 secret_base64 = os.environ['SECRET_BASE64']
 registry_auth_creds = json.loads(base64.b64decode(secret_base64))
 
 config = {}
-with open("values.yaml", "r") as f:
+with open(args.config_file_path, "r") as f:
     config = yaml.safe_load(f)
-
 
 def registry_auth(client,registry_authentication:dict[str])->None:
     for auth in registry_authentication:
@@ -54,7 +59,7 @@ def mirror_image(client,config:dict)->None:
             image = client.images.pull(
                 image_desc["image"], tag=tag
             )
-            for target_registry in config['destination_registry']:
+            for target_registry in config['destination_registries']:
                 image.tag(
                     f"{target_registry}/glueops/mirror/{image_desc['image']}",
                     tag=tag

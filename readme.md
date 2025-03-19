@@ -35,8 +35,9 @@ so encode the file in base64 then save it as github secret with the following na
 the second file is a reference for the images and their tags that will be copied, example
 
 ```yaml
-destination_registry: 
-    - 
+destination_registries: 
+    - ghcr.io
+    - quay.io
 images:
     - image: docker.io/hashicorp/vault
       tags:

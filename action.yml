@@ -1,6 +1,14 @@
 # action.yml
 name: 'Mirror Images'
 description: 'Mirror images from dockerhub to other registries(ghcr,quay)'
+inputs:
+  config_file_path:  # id of input
+    description: 'File contains the config of docker images'
+    required: true
+    default: 'config.yaml'
+
 runs:
   using: 'docker'
   image: 'Dockerfile'
+  args:
+    - ${{ inputs.config_file_path }}

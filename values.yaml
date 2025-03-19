@@ -1,4 +1,4 @@
-destination_registry: 
+destination_registries: 
     - ghcr
     - quay.io
 images:

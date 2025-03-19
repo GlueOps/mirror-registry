@@ -61,13 +61,13 @@ def mirror_image(client,config:dict)->None:
         repo_name = image_desc['image'].replace("docker.io/","")
         tags = list_tags(repo_name,image_desc['tags'])
         for tag in tags:
-            pull_url = f"{image_desc['image']}:{tag}"
+            pull_url = f"{repo_name}:{tag}"
             image = client.images.pull(
                 image_desc["image"], tag=tag
             )
             for target_registry in config['destination_registries']:
                 image.tag(
-                    f"{target_registry}/glueops/mirror/{image_desc['image']}",
+                    f"{target_registry}/glueops/mirror/{pull_url}",
                     tag=tag
                 )
                 print(

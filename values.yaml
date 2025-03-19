@@ -2,8 +2,21 @@ destination_registries:
   - ghcr.io
   - quay.io
 images:
-  - image: docker.io/hashicorp/vault
+  - image: docker.io/grafana/grafana
     tags:
-      - "1.18"
+      - "10.4.13"
   - image: docker.io/grafana/loki
-    tags: []
+    tags: 
+      - "2.9.10"
+  - image: docker.io/syepes/network_exporter
+    tags: 
+      - "1.7.9"
+  - image: docker.io/grafana/promtail
+    tags: 
+      - "2.9.10"
+  - image: docker.io/hashicorp/vault
+    tags: 
+      - "1.14.10"
+  - image: docker.io/kubesphere/fluent-operator
+    tags: 
+      - "v2.7.0"

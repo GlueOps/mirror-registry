@@ -1,1 +1,3 @@
 # mirror-registry
+
+test

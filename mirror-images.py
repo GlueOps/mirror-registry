@@ -5,7 +5,18 @@ import os
 import base64
 import requests
 import re
-import argparse
+import sys
+
+if len(sys.argv) < 2:
+    print("❌ Error: No YAML file path provided!")
+    sys.exit(1)
+
+config_path = sys.argv[1]  # Get the file path from GitHub Actions input
+
+if not os.path.isfile(config_path):
+    print(f"❌ Error: Config file '{config_path}' not found!")
+    sys.exit(1)
+config_path
 
 client = docker.DockerClient(base_url="unix://var/run/docker.sock")
 
@@ -13,7 +24,6 @@ secret_base64 = os.environ['SECRET_BASE64']
 registry_auth_creds = json.loads(base64.b64decode(secret_base64))
 
 config = {}
-config_path = os.environ['INPUT_CONFIG-FILE-PATH']
 with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 

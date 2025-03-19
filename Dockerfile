@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT [ "python", "debug.py" ]
+ENTRYPOINT [ "python", "mirror-images.py" ]

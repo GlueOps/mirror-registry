@@ -46,3 +46,36 @@ images:
     - image: docker.io/grafana/loki
       tags: [] # pick the last 10 tags
 ```
+
+here is an example of how you will use it in github action:
+
+```yaml
+name: Test Docker on GitHub Actions
+
+on:
+  pull_request:
+  push:
+    branches: 
+      - master
+
+jobs:
+  push_container:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged --shm-size=2g
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+    container:
+      image: ubuntu:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mirror Image
+        id: MirrorImage
+        uses: actions/mirror-registr@v1
+        env:
+          SECRET_BASE64: ${{ secrets.SECRET_BASE64 }}
+```

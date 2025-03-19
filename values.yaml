@@ -1,0 +1,9 @@
+destination_registry: 
+    - ghcr
+    - quay.io
+images:
+  - image: docker.io/hashicorp/vault
+    tags:
+      - "1.18"
+  - image: docker.io/grafana/loki
+    tags: []

@@ -5,7 +5,7 @@ inputs:
   config_file_path:  # id of input
     description: 'File contains the config of docker images'
     required: true
-    default: 'config.yaml'
+    default: 'values.yaml'
 
 runs:
   using: 'docker'

@@ -8,17 +8,13 @@ import re
 import argparse
 
 client = docker.DockerClient(base_url="unix://var/run/docker.sock")
-parser = argparse.ArgumentParser(
-            prog='Mirror',
-            description='Mirror images')
-parser.add_argument('config_file_path')
-args = parser.parse_args()
 
 secret_base64 = os.environ['SECRET_BASE64']
 registry_auth_creds = json.loads(base64.b64decode(secret_base64))
 
 config = {}
-with open(args.config_file_path, "r") as f:
+config_path = os.environ['INPUT_CONFIG-FILE-PATH']
+with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 def registry_auth(client,registry_authentication:dict[str])->None:

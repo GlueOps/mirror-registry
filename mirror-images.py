@@ -74,6 +74,17 @@ def list_tags(repo:str,token:str,patterns:list[str],date_limit:datetime) -> list
             url = None
     return tags
 
+
+def check_tag(repo:str,token:str,tag:str):
+    url = f"https://hub.docker.com/v2/repositories/{repo}/tags/{tag}"
+    headers = {}
+    if token:
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+    response = requests.get(url,headers=headers)
+    return response.status_code == 200
+
 def calculate_date_limit(time_span:Optional[str])-> datetime:
     desired_date = datetime.now(tz=timezone.utc) - timedelta(days=3)
 
@@ -89,8 +100,6 @@ def calculate_date_limit(time_span:Optional[str])-> datetime:
 
 def mirror_image(client,config:dict)->None:
     docker_images = config["images"]
-    tags = []
-    regex_tags = []
     registry = list(filter(lambda i: i['name']=="index.docker.io",registry_auth_creds['auths']))
     
     token = None
@@ -101,14 +110,16 @@ def mirror_image(client,config:dict)->None:
     
     for image_desc in docker_images:
         repo_name = image_desc['image'].replace("docker.io/","")
+        regex_tags = []
+        tags = []
         for t in image_desc['tags']:
             if is_regex(t):
                 regex_tags.append(t)
             else:
-                tags.append(t)
+                tag_exist = check_tag(repo_name,token,t)
+                if tag_exist: tags.append(t)
         if regex_tags:
             tags.extend(list_tags(repo_name,token,regex_tags,date_limit))
-        print(tags,regex_tags)
         for tag in tags:
             pull_url = f"{repo_name}:{tag}"
             image = client.images.pull(

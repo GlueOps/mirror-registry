@@ -1,10 +1,13 @@
 destination_registries: 
   - ghcr.io
   - quay.io
+repo_prefix: "glueops/mirror"
+time_span: 5m # d,m default to 3d
 images:
   - image: docker.io/grafana/grafana
     tags:
       - "10.4.13"
+      # - "10.4.*"
   - image: docker.io/grafana/loki
     tags: 
       - "2.9.10"

@@ -19,7 +19,7 @@ here is an example of the format:
             "password": ""
         },
         {
-            "name": "docker.io",
+            "name": "index.docker.io",
             "username": "",
             "email": "",
             "password": ""
@@ -30,22 +30,25 @@ here is an example of the format:
 
 currently we support ghcr, quay.
 
+note: if you dont want to hit the rate limit, use short time_span or exact match tags
+
 so encode the file in base64 then save it as github secret with the following name: `SECRET_BASE64`
 
 the second file is a reference for the images and their tags that will be copied, example
 
 ```yaml
 destination_registries: 
-    - ghcr.io
-    - quay.io
+  - ghcr.io
+  - quay.io
+repo_prefix: "glueops/mirror"
+time_span: 5d # d,m default to 3d
 images:
-    - image: docker.io/hashicorp/vault
-      tags:
-        - v1.0
-        - v2.*
-        - v*.*.*-rc1
-    - image: docker.io/grafana/loki
-      tags: [] # pick the last 10 tags
+  - image: docker.io/grafana/grafana
+    tags:
+      - "10.4.13"
+  - image: docker.io/grafana/loki
+    tags: 
+      - "2.*"
 ```
 
 here is an example of how you will use it in github action:
@@ -77,6 +80,8 @@ jobs:
       - name: Mirror Image
         id: MirrorImage
         uses: actions/mirror-registr@v1
+        with:
+          config-file-path: 'images-config.yaml'
         env:
           SECRET_BASE64: ${{ secrets.SECRET_BASE64 }}
 ```

@@ -1,5 +1,5 @@
 # action.yml
-name: 'Mirror Images'
+name: 'MirrorDockerHubImages'
 description: 'Mirror images from dockerhub to other registries(ghcr,quay)'
 inputs:
   config-file-path:  # id of input

@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT [ "python", "mirror-images.py" ]
+ENTRYPOINT [ "python", "/usr/src/app/mirror-images.py"]

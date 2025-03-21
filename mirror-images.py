@@ -9,7 +9,6 @@ import re
 import sys
 import time
 from datetime import timedelta,datetime, timezone
-import pytz
 
 
 if len(sys.argv) < 2:

@@ -9,6 +9,8 @@ import re
 import sys
 import time
 from datetime import timedelta,datetime, timezone
+import pytz
+
 
 if len(sys.argv) < 2:
     print("❌ Error: No YAML file path provided!")
@@ -46,7 +48,73 @@ def is_regex(tag:str) -> bool:
 
 
 
-def list_tags(repo:str,token:str,patterns:list[str],date_limit:datetime) -> list[str]:
+def list_ghcr_tags(repo:str,token:str,patterns:list[str],date_limit:datetime)->list[str]:
+    current_page = 1
+    tags = []
+    base_registry = repo.split("/")[0]
+    package_name = "%2F".join(repo.split("/")[1:])
+    headers = {}
+    if token:
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+    print(base_registry,package_name)
+    while True:
+        time.sleep(0.5)
+        url = f"https://api.github.com/orgs/{base_registry}/packages/container/{package_name}/versions?per_page=100&page={current_page}"
+        response = requests.get(url,headers=headers)
+        if response.status_code != 200:
+            print(response.text)
+            return tags
+        response = response.json()
+        for result in response:
+            for pattern in patterns:
+                matched = re.fullmatch(pattern, result['metadata']['container']['tags'][0])
+                if matched:
+                    tags.append(result['metadata']['container']['tags'][0])
+                    break
+            tag_date = datetime.fromisoformat(result['created_at'])
+            if tag_date < date_limit:
+                return tags
+        if response:
+            current_page+=1
+        else:
+            return tags
+
+def list_quay_tags(repo:str,token:str,patterns:list[str],date_limit:datetime)->list[str]:
+    current_page = 1
+    date_format = "%a, %d %b %Y %H:%M:%S %z"
+    tags = []
+    headers = {}
+    
+    if token:
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+    while True:
+        time.sleep(0.5)
+        url = f"https://quay.io/api/v1/repository/{repo}/tag?limit=100&page={current_page}"
+        response = requests.get(url,headers=headers)
+        if response.status_code != 200:
+            print(response.text)
+            return tags
+        response = response.json()
+        for result in response['tags']:
+            for pattern in patterns:
+                matched = re.fullmatch(pattern, result['name'])
+                if matched:
+                    tags.append(result['name'])
+                    break
+            tag_date = datetime.strptime(result['last_modified'], date_format)
+            if tag_date < date_limit:
+                return tags
+        if response['has_additional']:
+            current_page+=1
+        else:
+            return tags
+
+
+def list_dockerhub_tags(repo:str,token:str,patterns:list[str],date_limit:datetime) -> list[str]:
     url = f"https://hub.docker.com/v2/repositories/{repo}/tags?page_size=100"
     tags = []
     headers = {}
@@ -56,87 +124,97 @@ def list_tags(repo:str,token:str,patterns:list[str],date_limit:datetime) -> list
         }
     while url:
         time.sleep(0.5)
-        response = requests.get(url,headers=headers).json()
+        response = requests.get(url,headers=headers)
+        if response.status_code != 200:
+            print(response.text)
+            return tags
+        response = response.json()
+
         for result in response["results"]:
-            if len(patterns) == 0:
-                tags.append(result['name'])
+            print(f"matching against {result['name']}")
             for pattern in patterns:
                 matched = re.fullmatch(pattern, result['name'])
                 if matched:
                     tags.append(result['name'])
                     break
-            tag_date = datetime.fromisoformat(result['last_updated'][:-1])
+            tag_date = datetime.fromisoformat(result['last_updated'])
             if tag_date < date_limit:
                 return tags
-        if patterns:
-            url = response.get("next")
-        else:
-            url = None
+        url = response.get("next")
     return tags
 
 
-def check_tag(repo:str,token:str,tag:str):
-    url = f"https://hub.docker.com/v2/repositories/{repo}/tags/{tag}"
-    headers = {}
-    if token:
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-    response = requests.get(url,headers=headers)
-    return response.status_code == 200
-
 def calculate_date_limit(time_span:Optional[str])-> datetime:
-    desired_date = datetime.now(tz=timezone.utc) - timedelta(days=3)
+    desired_date = datetime.now(timezone.utc) - timedelta(days=3)
 
     if time_span is None:
         pass
     elif 'm' in time_span:
         time_span = int(time_span.replace("m",""))
-        desired_date = datetime.now() - timedelta(days=30*time_span)
+        desired_date = datetime.now(timezone.utc) - timedelta(days=30*time_span)
     elif 'd' in time_span:
         time_span = int(time_span.replace("d",""))
-        desired_date = datetime.now() - timedelta(days=time_span)
+        desired_date = datetime.now(timezone.utc) - timedelta(days=time_span)
     return desired_date
+
+
+def get_registry_token(registry:str,registry_auth_creds:dict):
+    registry = list(filter(lambda i: i['name']==registry,registry_auth_creds['auths']))
+    token = None
+    if registry:
+        if registry[0].get("api_auth",{}):
+            token = registry['api_auth']['password']
+        else:
+            token = registry[0]['password']
+    return token
 
 def mirror_image(client,config:dict)->None:
     docker_images = config["images"]
-    registry = list(filter(lambda i: i['name']=="index.docker.io",registry_auth_creds['auths']))
-    
-    token = None
-    if registry:
-        token = registry[0]['password']
-
     date_limit = calculate_date_limit(config['time_span'])
     
     for image_desc in docker_images:
-        repo_name = image_desc['image'].replace("docker.io/","")
+        base_registry = image_desc['image'].split("/")[0]
+        repo_name = "/".join(image_desc['image'].split("/")[1:])
         regex_tags = []
         tags = []
+        token = get_registry_token(base_registry,registry_auth_creds)
         for t in image_desc['tags']:
             if is_regex(t):
                 regex_tags.append(t)
             else:
-                tag_exist = check_tag(repo_name,token,t)
-                if tag_exist: tags.append(t)
+                tags.append(t)
+        
         if regex_tags:
-            tags.extend(list_tags(repo_name,token,regex_tags,date_limit))
+            if base_registry == "docker.io":
+                tags.extend(
+                    list_dockerhub_tags(repo_name,token,regex_tags,date_limit)
+                )
+            elif base_registry == "ghcr.io":
+                tags.extend(
+                    list_ghcr_tags(repo_name,token,regex_tags,date_limit)
+                )
+            elif base_registry == "quay.io":
+                tags.extend(
+                    list_quay_tags(repo_name,token,regex_tags,date_limit)
+                )
         for tag in tags:
             pull_url = f"{repo_name}:{tag}"
-            image = client.images.pull(
-                image_desc["image"], tag=tag
-            )
+            try:
+                image = client.images.pull(
+                    image_desc["image"], tag=tag
+                )
+            except docker.errors.APIError as e:
+                print(f"We couldn't find the following: {image_desc['image']}:{tag}")
+                continue
             for target_registry in config['destination_registries']:
-                image.tag(
-                    f"{target_registry}/{config['repo_prefix']}/{pull_url}",
-                    tag=tag
-                )
-                print(
-                    f"mirroring the image: {target_registry}/{config['repo_prefix']}/{pull_url}"
-                )
-                res = client.images.push(
-                    f"{target_registry}/{config['repo_prefix']}/{pull_url}"
-                )
-    return None
+                if config['repo_prefix']:
+                    destination_url = f"{target_registry}/{config['repo_prefix']}/{pull_url}"
+                else:
+                    destination_url = f"{target_registry}/{pull_url}"
+                image.tag(destination_url,tag=tag)
+                print(f"mirroring the image: {destination_url}")
+                res = client.images.push(destination_url)
+                print(res)
 
 registry_auth(client,registry_auth_creds['auths'])
 mirror_image(client,config)

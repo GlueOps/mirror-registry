@@ -41,7 +41,6 @@ def registry_auth(client,registry_authentication:dict[str])->None:
     for auth in registry_authentication:
         res = client.login(
             username=auth["username"],
-            email=auth["email"],
             password=auth["password"],
             registry=auth["name"],
         )

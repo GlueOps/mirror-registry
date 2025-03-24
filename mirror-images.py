@@ -32,6 +32,11 @@ with open(config_path, "r") as f:
     config = yaml.safe_load(f)
 
 
+def check_error_msg_exist(msg:str) -> bool:
+    keywords = ["error", "permission_denied", "denied", "errorDetail", "fail", "unauthorized"]
+    exist = any([key in msg for key in keywords])
+    return exist
+
 def registry_auth(client,registry_authentication:dict[str])->None:
     for auth in registry_authentication:
         res = client.login(
@@ -40,10 +45,14 @@ def registry_auth(client,registry_authentication:dict[str])->None:
             password=auth["password"],
             registry=auth["name"],
         )
+        if check_error_msg_exist(res):
+            exit(1)
+
 
 def is_regex(tag:str) -> bool:
     regex_metachars = r"*+?[]{}()|^$\\"
     return any(char in tag for char in regex_metachars)
+
 
 
 
@@ -143,6 +152,69 @@ def list_dockerhub_tags(repo:str,token:str,patterns:list[str],date_limit:datetim
     return tags
 
 
+def list_ecr_tags(repo:str,patterns:list[str],date_limit:datetime) -> list[str]:
+    url = f"https://api.us-east-1.gallery.ecr.aws/describeImageTags"
+    tags = []
+    headers = {}
+    nextToken = None
+    
+    while True:
+        time.sleep(0.5)
+        request_data = {
+            "registryAliasName": repo.split("/")[0],
+            "repositoryName": "/".join(repo.split("/")[1:]),
+            "maxResults": 100,
+        }
+        if nextToken:
+            request_data.update({
+                "nextToken": nextToken
+            })
+        response = requests.post(url,headers=headers,json=request_data)
+        if response.status_code != 200:
+            return tags
+        response = response.json()
+       
+        for result in response["imageTagDetails"]:
+            tag_date = datetime.fromisoformat(result['createdAt'])
+            if tag_date < date_limit:
+                continue
+            for pattern in patterns:
+                matched = re.fullmatch(pattern, result['imageTag'])
+                if matched:
+                    tags.append(result['imageTag'])
+                    break
+        nextToken = response.get("nextToken", None)
+        if not nextToken:
+            break
+    return tags
+
+
+def list_k8s_registry_tags(repo:str,patterns:list[str],date_limit:datetime) -> list[str]:
+    url = f"https://registry.k8s.io/v2/{repo}/tags/list"
+    tags = []
+    response = requests.get(url)
+    if response.status_code != 200:
+        return tags
+    response = response.json()
+    for _,v in response["manifest"].items():
+        if len(v['tag']) > 0:
+            tag = v['tag'][0]
+        else:
+            continue
+        tag_date = datetime.fromtimestamp(
+            int(v['timeUploadedMs'])/1000,
+            tz=timezone.utc
+        )
+        if tag_date < date_limit:
+            continue
+        for pattern in patterns:
+            matched = re.fullmatch(pattern, tag)
+            if matched:
+                tags.append(tag)
+                break
+    return tags
+
+
 def calculate_date_limit(time_span:Optional[str])-> datetime:
     desired_date = datetime.now(timezone.utc) - timedelta(days=3)
 
@@ -196,6 +268,15 @@ def mirror_image(client,config:dict)->None:
                 tags.extend(
                     list_quay_tags(repo_name,token,regex_tags,date_limit)
                 )
+            elif base_registry == "public.ecr.aws":
+                tags.extend(
+                    list_ecr_tags(repo_name,regex_tags,date_limit)
+                )
+            elif base_registry == "registry.k8s.io":
+                tags.extend(
+                    list_k8s_registry_tags(repo_name,regex_tags,date_limit)
+                )
+        print(f'matched tags: {tags}')
         for tag in tags:
             pull_url = f"{repo_name}:{tag}"
             try:
@@ -204,7 +285,7 @@ def mirror_image(client,config:dict)->None:
                 )
             except docker.errors.APIError as e:
                 print(f"We couldn't find the following: {image_desc['image']}:{tag}")
-                continue
+                exit(1)
             for target_registry in config['destination_registries']:
                 if config['repo_prefix']:
                     destination_url = f"{target_registry}/{config['repo_prefix']}/{pull_url}"
@@ -214,6 +295,9 @@ def mirror_image(client,config:dict)->None:
                 print(f"mirroring the image: {destination_url}")
                 res = client.images.push(destination_url)
                 print(res)
+                if check_error_msg_exist(res):
+                    exit(1)
+
 
 registry_auth(client,registry_auth_creds['auths'])
 mirror_image(client,config)

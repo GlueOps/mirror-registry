@@ -283,7 +283,8 @@ def mirror_image(client,config:dict)->None:
                     image_desc["image"], tag=tag
                 )
             except docker.errors.APIError as e:
-                print(f"We couldn't find the following: {image_desc['image']}:{tag}")
+                print(f"We faced an error while pull the following: {image_desc['image']}:{tag}")
+                print(f"main error {e}")
                 exit(1)
             for target_registry in config['destination_registries']:
                 if config['repo_prefix']:
